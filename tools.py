@@ -27,7 +27,8 @@ def clean_sp_data(sales_pipeline_df):
 #Remplacer les dates vides par NaT
 
 def clean_sp_time(sales_pipeline_df):
-     clean_sp_time = sales_pipeline_df[['engage_date','close_date']].fillna(value=pd.NaT)
+     clean_sp_time = sales_pipeline_df.fillna(value=pd.NaT)
+     #clean_sp_time = sales_pipeline_df['close_date'].fillna(value=pd.NaT)
      return clean_sp_time
 
 

@@ -135,7 +135,8 @@ elif page == pages[1] :
 
     
     st.header("Comprehension du profil des clients",divider=True)
-
+    
+   
    
     
    #Déterminez les clients avec les chiffres d’affaires les plus élevé Top 10
@@ -201,6 +202,22 @@ elif page==pages[2]:
     
     st.header("Evaluation de la performance des équipe de vente",divider=True)
 
+     #Faire les metrics pour les agents en fonction des deals 
+    total_agent_won= sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']['sales_agent'].nunique()
+    total_agent_lost= sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Lost']['sales_agent'].nunique()
+    total_agent_engaging= sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Engaging']['sales_agent'].nunique()
+    total_agent_prospecting= sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Prospecting']['sales_agent'].nunique()
+
+    #schéma du cycle de vente 
+    col1, col2, col3, col4 ,col5= st.columns(5)
+
+    col1.metric(label="Total des agents", value=total_agent)
+    col2.metric(label="Agents Deals gagnés ", value=total_agent_won)
+    col3.metric(label="Agents Deals perdu", value=total_agent_lost)
+    col4.metric(label="Agents en cours de deals ", value=total_agent_engaging)
+    col5.metric(label="Agents en propection", value=total_agent_prospecting)
+    style_metric_cards()
+
     #4. Le nombre de sales_agent par regional_office
     col1,col2=st.columns(2)
     
@@ -213,8 +230,8 @@ elif page==pages[2]:
 
     with col2:
         st.subheader("Classement des employés qui effectue les deal le plus rapidement")
-        sp_time_clean['close_date'] = pd.to_datetime(sp_time_clean['close_date'], errors='coerce')
-        sp_time_clean['engage_date'] = pd.to_datetime(sp_time_clean['engage_date'], errors='coerce')
+        sp_time_clean['close_date'] = pd.to_datetime(sp_time_clean['close_date'])
+        sp_time_clean['engage_date'] = pd.to_datetime(sp_time_clean['engage_date'])
         
         # Suppression des lignes avec des dates manquantes
         sp_time_clean = sp_time_clean.dropna(subset=['close_date', 'engage_date'])
@@ -224,9 +241,10 @@ elif page==pages[2]:
         
         # Filtrer les données par 'deal_stage', puis grouper par 'sales_agent' et calculer la durée moyenne des deals
         top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration'].mean().sort_values(ascending=False).head(5)
-        
+        top5_slower_df = top5_slower.reset_index()
+        st.line_chart(data=top5_slower_df, x='sales_agent', y='deal_duration')
         # Affichage du graphique
-        st.line_chart(top5_slower)
+        
 
     col1,col2=st.columns(2)
     
@@ -282,26 +300,43 @@ elif page==pages[3]:
     
     st.header("Analyse du cycle de vente",divider=True)
 
+    #Faire les metrics pour les deals 
+    
+    total_deals = sales_pipeline_df.shape[0]
+    won_deals = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']['opportunity_id'].count()
+    
+    lost_deals = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Lost']['opportunity_id'].count() 
+    
+    engaging_deals = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Engaging']['opportunity_id'].count()
+    
+    prospecting_deals = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Prospecting']['opportunity_id'].count()
+    
+
+    
+
     #schéma du cycle de vente 
+    col1, col2, col3, col4 ,col5= st.columns(5)
+
+    col1.metric(label=" Nombre total de deals", value=total_deals)
+    col2.metric(label=" Deals gagnés", value=won_deals)
+    col3.metric(label=" Deals perdus", value=lost_deals)
+    col4.metric(label="Deals en cours", value=engaging_deals)
+    col5.metric(label="Prospection de deals", value=prospecting_deals)
+    style_metric_cards()
+     
     
     
     col1,col2=st.columns(2)
     col1.image("img/cycle.png",width=300)
-    col2.subheader("Nombre de deal pour chaque phase")
-    data=sales_pipeline_df['deal_stage'].value_counts()
-    sp_df_clean = pd.DataFrame(data)
 
-    # Fonction de style pour le DataFrame
-    def highlight_max(s):
-        is_max = s == s.max()
-        return ['background-color: yellow' if v else '' for v in is_max]
+    with col2:
 
-    styled_df = sp_df_clean.style.apply(highlight_max, subset=['count'])
-    # Affichage du DataFrame stylisé dans Streamlit
-    col2.dataframe(styled_df,width=300)
-
-    
-    
+        sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+        sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
+        sales_pipeline_df['deal_duration']=sales_pipeline_df['close_date']-sales_pipeline_df['engage_date']
+        sold_faster=sales_pipeline_df[sales_pipeline_df['deal_stage']=='Won'].groupby('product')['deal_duration'].mean().sort_values(ascending=True).reset_index()
+        st.line_chart(sold_faster, x='product',y='deal_duration')
+        #st.image("img/vitesse_de_vente_produits.png",width=800)
 
 
    
