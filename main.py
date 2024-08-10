@@ -6,6 +6,7 @@ from csv import *
 import plotly.express as px
 import matplotlib as plt
 from streamlit_extras.metric_cards import style_metric_cards
+import altair as alt
 
 st.set_page_config(
         page_title="Analyse des données du CRM",
@@ -58,16 +59,16 @@ st.markdown("<style> footer {visibility: hidden;} </style>", unsafe_allow_html=T
 
 st.sidebar.title("Navigation")
 
-pages = ["Acceuil","Comprehension du profil des clients ", "Évaluation de la performance des équipes de vente", "Analyse du cycle de vente"]
+pages = ["Accueil","Comprehension du profil des clients ", "Évaluation de la performance des équipes de vente", "Analyse du cycle de vente"]
 
-#page = st.sidebar.radio("Aller vers la page :", pages)
+page = st.sidebar.radio("Aller vers la page :", pages)
 
 
-page = st.sidebar.selectbox(
-    'Aller sur la page',
-    pages
-)
-st.sidebar.title("Filtrer les données")
+# page = st.sidebar.selectbox(
+#     'Aller sur la page',
+#     pages
+# )
+# st.sidebar.title("Filtrer les données")
 if page == pages[0] :
     col1,col2=st.columns([1,3])
     col1.image("img/logo_sales.png",width=120)
@@ -76,6 +77,13 @@ if page == pages[0] :
         header_html = "<h3 style='color: #6600ff; font-family: Arial, sans-serif; font-size: 48px;'>Analyse des données du CRM</h3>"
 
         st.markdown(header_html, unsafe_allow_html=True)
+# st.sidebar.title("Sommaire")
+
+# pages = ["Contexte du projet", "Exploration des données", "Analyse de données", "Modélisation"]
+
+# page = st.sidebar.radio("Aller vers la page :", pages)
+
+# if page == pages[0] : 
 
     
     st.header("Principaux KPIs")
@@ -171,7 +179,6 @@ elif page == pages[1] :
         acc_df_clean['location_grouped'] = acc_df_clean['office_location'].apply(lambda x: x if x == 'United States' else 'Autre')
         data=acc_df_clean['account'].groupby(acc_df_clean['location_grouped']).count().reset_index()
         fig = px.pie(data, values='account', names='location_grouped', hole=0.5)
-        
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
@@ -180,15 +187,28 @@ elif page == pages[1] :
        sector_data=acc_df_clean[acc_df_clean['office_location']=='United States']['sector'].value_counts().reset_index()
        sector_data.columns = ['sector', 'count']
        fig = px.pie(sector_data, values='count', names='sector', hole=0.5)
-        
        st.plotly_chart(fig, use_container_width=True)
    
-    #	Donnez des intervalle d’années pour voir l’évolution des secteurs où il y’a plus de création d’entreprise
-    # interval=range(1978,2019,10)
-    # acc_df_clean['year_established_interval'] = pd.cut(acc_df_clean['year_established'], bins=interval)
-    # evolution = acc_df_clean.groupby(['year_established_interval', 'sector'])['account'].count().reset_index()
-    # evolution.pivot(index='year_established_interval', columns='sector', values='account')
-    # st.bar_chart(evolution,x_label="années",y_label="nombres d'entreprise")
+    	
+    bins = range(1978, 2019, 10)
+    labels = [f'{start}-{start+4}' for start in bins[:-1]]
+    acc_df_clean['year_interval'] = pd.cut(acc_df_clean['year_established'], bins=bins, labels=labels, right=False)
+    creation_counts = acc_df_clean['year_interval'].value_counts().sort_index()
+
+    # Convertir les résultats en DataFrame pour Plotly
+    creation_counts_df = creation_counts.reset_index()
+    creation_counts_df.columns = ['year_interval', 'count']
+
+    # Créer le graphique à barres avec Plotly
+    fig = px.bar(creation_counts_df, x='year_interval', y='count',
+                color='year_interval',  # Utiliser des couleurs différentes pour chaque intervalle
+                title='Nombre de créations d\'entreprises par intervalle d\'années',
+                labels={'year_interval': 'Intervalle d\'années', 'count': 'Nombre de créations'},
+                color_discrete_sequence=px.colors.qualitative.Plotly)  # Choisir une palette de couleurs
+
+    # Afficher le graphique avec Streamlit
+    st.subheader("Nombre de créations d'entreprises par intervalle d'années")
+    st.plotly_chart(fig)
 
 
 elif page==pages[2]:
@@ -196,11 +216,10 @@ elif page==pages[2]:
     col1.image("img/logo_sales.png",width=120)
     with col2:
         header_html = "<h3 style='color: #6600ff; font-family: Arial, sans-serif; font-size: 48px;'>Analyse des données du CRM</h3>"
-
         st.markdown(header_html, unsafe_allow_html=True)
 
     
-    st.header("Evaluation de la performance des équipe de vente",divider=True)
+    st.header("Evaluation de la performance des équipes de vente",divider=True)
 
      #Faire les metrics pour les agents en fonction des deals 
     total_agent_won= sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']['sales_agent'].nunique()
@@ -222,6 +241,7 @@ elif page==pages[2]:
     col1,col2=st.columns(2)
     
     with col1:
+        st.subheader("Classement des agents par region")
         data=sales_teams_df['sales_agent'].groupby(sales_teams_df['regional_office']).count().reset_index()
         
         fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
@@ -229,22 +249,29 @@ elif page==pages[2]:
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.subheader("Classement des employés qui effectue les deal le plus rapidement")
+        
+        # Afficher le sous-titre
+        st.subheader("Classement des employés qui effectue les deals le plus rapidement")
+
+        # Conversion des colonnes de dates en datetime
         sp_time_clean['close_date'] = pd.to_datetime(sp_time_clean['close_date'])
         sp_time_clean['engage_date'] = pd.to_datetime(sp_time_clean['engage_date'])
-        
+
         # Suppression des lignes avec des dates manquantes
         sp_time_clean = sp_time_clean.dropna(subset=['close_date', 'engage_date'])
-        
+
         # Calcul de la durée du deal
         sp_time_clean['deal_duration'] = sp_time_clean['close_date'] - sp_time_clean['engage_date']
-        
+
+        # Conversion de la durée en nombre de jours
+        sp_time_clean['deal_duration_days'] = sp_time_clean['deal_duration'].dt.days
+
         # Filtrer les données par 'deal_stage', puis grouper par 'sales_agent' et calculer la durée moyenne des deals
-        top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration'].mean().sort_values(ascending=False).head(5)
+        top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration_days'].mean().sort_values(ascending=False).head(20)
         top5_slower_df = top5_slower.reset_index()
-        st.line_chart(data=top5_slower_df, x='sales_agent', y='deal_duration')
-        # Affichage du graphique
-        
+
+        # Création du line chart avec Streamlit
+        st.line_chart(data=top5_slower_df.set_index('sales_agent')['deal_duration_days'])
 
     col1,col2=st.columns(2)
     
@@ -286,8 +313,6 @@ elif page==pages[2]:
         st.dataframe(data,width=400)
 
 
-
-
 elif page==pages[3]:
 
     col1,col2=st.columns([1,3])
@@ -326,29 +351,82 @@ elif page==pages[3]:
      
     
     
-    col1,col2=st.columns(2)
-    col1.image("img/cycle.png",width=300)
+    col1,col2=st.columns([1,3])
+    col1.image("img/cycle.png",width=200)
 
     with col2:
 
-        sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+    
+     # Assurez-vous que les colonnes de dates sont en format datetime
         sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
-        sales_pipeline_df['deal_duration']=sales_pipeline_df['close_date']-sales_pipeline_df['engage_date']
-        sold_faster=sales_pipeline_df[sales_pipeline_df['deal_stage']=='Won'].groupby('product')['deal_duration'].mean().sort_values(ascending=True).reset_index()
-        st.line_chart(sold_faster, x='product',y='deal_duration')
-        #st.image("img/vitesse_de_vente_produits.png",width=800)
+        sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+
+        # Calculer la durée du cycle de vente pour chaque deal
+        sales_pipeline_df['cycle_duration'] = (sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']).dt.days
+
+        # Calculer la durée moyenne du cycle de vente pour tous les deals
+        average_cycle_duration = sales_pipeline_df['cycle_duration'].mean()
+
+        # Calculer la durée moyenne pour les deals gagnés
+        deals_won_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']
+        average_cycle_duration_won = deals_won_df['cycle_duration'].mean()
+
+        # Calculer la durée moyenne pour les deals perdus
+        deals_lost_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Lost']
+        average_cycle_duration_lost = deals_lost_df['cycle_duration'].mean()
+
+        # Afficher les résultats avec Streamlit
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(label="Durée moyenne du cycle de vente", value=f"{average_cycle_duration:.1f} jours")
+        col2.metric(label="Durée moyenne des deals gagnés", value=f"{average_cycle_duration_won:.1f} jours")
+        col3.metric(label="Durée moyenne des deals perdus", value=f"{average_cycle_duration_lost:.1f} jours")
 
 
-   
+    col1,col2 = st.columns([3,2])
 
-    #16.	Calculer la durée moyenne du cycle de vente complet, depuis la phase de prospection jusqu'à la clôture (engage_date - closed_date).
-# La durée moyenne pour gagner un deal
+    with col1:
+        # Conversion des colonnes de dates en datetime
+            sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+            sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
 
+            # Calcul de la durée du deal
+            sales_pipeline_df['deal_duration'] = sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']
 
-    # sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
-    # sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
-    # sales_pipeline_df['deal_duration']=sales_pipeline_df['close_date']-sales_pipeline_df['engage_date']
-    # sales_pipeline_df['deal_duration'].mean()
-    # wintime=sales_pipeline_df[sales_pipeline_df['deal_stage']=='Won']['deal_duration'].mean()
-    # st.write(f"Durée moyenne des deals gagnés : {wintime}")
-  
+            # Conversion de la durée en nombre de jours
+            sales_pipeline_df['deal_duration_days'] = sales_pipeline_df['deal_duration'].dt.days
+
+            # S'assurer que les produits sont des chaînes de caractères
+            sales_pipeline_df['product'] = sales_pipeline_df['product'].astype(str)
+
+            # Filtrer les deals "Won" et calculer la moyenne de la durée du deal par produit
+            sold_faster = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won'].groupby('product')['deal_duration_days'].mean().sort_values(ascending=True).reset_index()
+
+            # Création du line chart avec Altair
+            chart = alt.Chart(sold_faster).mark_line(point=True).encode(
+                x='product',
+                y='deal_duration_days'
+            ).properties(
+                title='Average Deal Duration by Product'
+            )
+            st.altair_chart(chart, use_container_width=True)
+
+    with col2:
+
+            # Assurez-vous que les colonnes de dates sont en format datetime
+            sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
+            sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+
+            # Calculer la durée de vente pour chaque produit
+            sales_pipeline_df['cycle_duration'] = (sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']).dt.days
+            # Calculer la durée moyenne de vente pour chaque produit
+            average_duration_per_product = sales_pipeline_df.groupby('product')['cycle_duration'].mean().reset_index()
+
+            # Renommer les colonnes pour plus de clarté
+            average_duration_per_product.columns = ['Product', 'Average_Duration']
+            # Classer les produits par durée moyenne de vente en ordre croissant
+            sorted_products = average_duration_per_product.sort_values(by='Average_Duration')
+
+            # Afficher les résultats avec Streamlit
+            st.subheader("Durée moyenne de vente des produits")
+            st.dataframe(sorted_products)
