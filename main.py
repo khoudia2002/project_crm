@@ -7,6 +7,7 @@ import plotly.express as px
 import matplotlib as plt
 from streamlit_extras.metric_cards import style_metric_cards
 import altair as alt
+from streamlit_extras.chart_container import chart_container
 
 st.set_page_config(
         page_title="Analyse des données du CRM",
@@ -59,7 +60,7 @@ st.markdown("<style> footer {visibility: hidden;} </style>", unsafe_allow_html=T
 
 st.sidebar.title("Navigation")
 
-pages = ["Accueil","Comprehension du profil des clients ", "Évaluation de la performance des équipes de vente", "Analyse du cycle de vente"]
+pages = ["Accueil","Comprehension du profil des clients ", "Évaluation de la performance des équipes de vente", "Analyse du cycle de vente et des produits"]
 
 page = st.sidebar.radio("Aller vers la page :", pages)
 
@@ -121,7 +122,7 @@ if page == pages[0] :
         st.dataframe(top_clients_df, width=300)
         
     with col2:
-        st.subheader(" Classement des secteurs les plus prolifique")
+        st.subheader("  Les secteurs les plus prolifique")
         
 
         #Classez les secteurs selon les revenues qu'ils générents
@@ -144,6 +145,7 @@ elif page == pages[1] :
     
     st.header("Comprehension du profil des clients",divider=True)
     
+    
    
    
     
@@ -151,7 +153,7 @@ elif page == pages[1] :
 #accounts.head()
 
     col1,col2=st.columns(2)
-    col1.subheader("Top 10 des clients avec les chiffres d'affaires les plus élevés")
+    col1.subheader("Les 10  clients avec les chiffres d'affaires les plus élevés")
     col2.subheader("Proportion des clients par secteur")
 
 
@@ -181,13 +183,13 @@ elif page == pages[1] :
         fig = px.pie(data, values='account', names='location_grouped', hole=0.5)
         st.plotly_chart(fig, use_container_width=True)
 
-    with col2:
+    # with col2:
        
-       st.subheader("Propotion de client par secteur aux USA ")
-       sector_data=acc_df_clean[acc_df_clean['office_location']=='United States']['sector'].value_counts().reset_index()
-       sector_data.columns = ['sector', 'count']
-       fig = px.pie(sector_data, values='count', names='sector', hole=0.5)
-       st.plotly_chart(fig, use_container_width=True)
+    #    st.subheader("Propotion de client par secteur aux USA ")
+    #    sector_data=acc_df_clean[acc_df_clean['office_location']=='United States']['sector'].value_counts().reset_index()
+    #    sector_data.columns = ['sector', 'count']
+    #    fig = px.pie(sector_data, values='count', names='sector', hole=0.5)
+    #    st.plotly_chart(fig, use_container_width=True)
    
     	
     bins = range(1978, 2019, 10)
@@ -207,8 +209,45 @@ elif page == pages[1] :
                 color_discrete_sequence=px.colors.qualitative.Plotly)  # Choisir une palette de couleurs
 
     # Afficher le graphique avec Streamlit
-    st.subheader("Nombre de créations d'entreprises par intervalle d'années")
+    
     st.plotly_chart(fig)
+
+
+
+
+    # Filtres
+    selected_sector = st.sidebar.multiselect(
+        "Sélectionner les secteurs",
+        options=acc_df_clean['sector'].unique(),
+        default=acc_df_clean['sector'].unique()
+    )
+    
+    selected_location = st.sidebar.multiselect(
+        "Sélectionner les pays",
+        options=acc_df_clean['office_location'].unique(),
+        default=acc_df_clean['office_location'].unique()
+    )
+    
+    filtered_acc_df = acc_df_clean[
+        (acc_df_clean['sector'].isin(selected_sector)) & 
+        (acc_df_clean['office_location'].isin(selected_location))
+    ]
+    
+
+    col1, col2 = st.columns(2)
+    with col1:
+        col1.subheader("Les clients selon leur chiffre d'affaires")
+        col1.bar_chart(filtered_acc_df[['account', 'revenue']].sort_values(by="revenue", ascending=False).head(10).set_index('account'),color="#6621db")
+
+    with col2: 
+        col2.subheader("Proportion des clients selon les secteur")
+        client_by_sector = filtered_acc_df['account'].groupby(filtered_acc_df['sector']).count().reset_index()
+        fig = px.pie(client_by_sector, values="account", names="sector", hole=0.5)
+        st.plotly_chart(fig, use_container_width=True)
+
+
+
+    
 
 
 elif page==pages[2]:
@@ -312,6 +351,41 @@ elif page==pages[2]:
 
         st.dataframe(data,width=400)
 
+    # Filtres
+    selected_agent = st.sidebar.multiselect(
+        "Sélectionner les agents",
+        options=sales_teams_df['sales_agent'].unique(),
+        default=sales_teams_df['sales_agent'].unique()
+    )
+    
+    selected_region = st.sidebar.multiselect(
+        "Sélectionner les régions",
+        options=sales_teams_df['regional_office'].unique(),
+        default=sales_teams_df['regional_office'].unique()
+    )
+    
+    filtered_sales_df = sales_pipeline_df[
+        (sales_pipeline_df['sales_agent'].isin(selected_agent)) & 
+        (sales_teams_df['regional_office'].isin(selected_region))
+    ]
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader(" les agents selon les régions")
+        data = sales_teams_df[sales_teams_df['sales_agent'].isin(selected_agent)].groupby('regional_office')['sales_agent'].count().reset_index()
+        fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.subheader("Les agents selon leur durées de deals")
+        sp_time_clean = sp_time_clean[sp_time_clean['sales_agent'].isin(selected_agent)]
+        top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration_days'].mean().sort_values(ascending=False).head(20)
+        
+        chart_data = top5_slower.reset_index()
+
+        with chart_container(chart_data):
+            st.area_chart(chart_data.set_index('sales_agent'))
+
 
 elif page==pages[3]:
 
@@ -340,93 +414,278 @@ elif page==pages[3]:
     
 
     #schéma du cycle de vente 
-    col1, col2, col3, col4 ,col5= st.columns(5)
+    # col1, col2, col3, col4 ,col5= st.columns(5)
 
-    col1.metric(label=" Nombre total de deals", value=total_deals)
-    col2.metric(label=" Deals gagnés", value=won_deals)
-    col3.metric(label=" Deals perdus", value=lost_deals)
-    col4.metric(label="Deals en cours", value=engaging_deals)
-    col5.metric(label="Prospection de deals", value=prospecting_deals)
-    style_metric_cards()
-     
+    # col1.metric(label=" Nombre total de deals", value=total_deals)
+    # col2.metric(label=" Deals gagnés", value=won_deals)
+    # col3.metric(label=" Deals perdus", value=lost_deals)
+    # col4.metric(label="Deals en cours", value=engaging_deals)
+    # col5.metric(label="Prospection de deals", value=prospecting_deals)
+    # style_metric_cards()
+    # import streamlit as st
     
+    col1, col2, col3, col4 ,col5= st.columns(5)
+    with col1: 
+        wch_colour_box = (65, 105, 225)
+        wch_colour_font = (0,0,0)
+        fontsize = 18
+        valign = "left"
+        iconname = "fas fa-asterisk"
+        sline = "DEALS"
+        lnk = '<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.1/css/all.css" crossorigin="anonymous">'
+        i = total_deals
+
+        htmlstr = f"""<p style='background-color: rgb({wch_colour_box[0]}, 
+                                                    {wch_colour_box[1]}, 
+                                                    {wch_colour_box[2]}, 0.75); 
+                                color: rgb({wch_colour_font[0]}, 
+                                        {wch_colour_font[1]}, 
+                                        {wch_colour_font[2]}, 0.75); 
+                                font-size: {fontsize}px; 
+                                border-radius: 7px; 
+                                padding-left: 12px; 
+                                padding-top: 18px; 
+                                padding-bottom: 18px; 
+                                line-height:25px;'>
+                                <i class='{iconname} fa-xs'></i> {i}
+                                </style><BR><span style='font-size: 14px; 
+                                margin-top: 0;'>{sline}</style></span></p>"""
+
+        st.markdown(lnk + htmlstr, unsafe_allow_html=True)
+        with col2:
+            wch_colour_box = (230, 230, 250)
+            wch_colour_font = (0,0,0)
+            fontsize = 18
+            valign = "left"
+            iconname = "fas fa-asterisk"
+            sline = "DEALS GAGNES"
+            lnk = '<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.1/css/all.css" crossorigin="anonymous">'
+            i = won_deals
+
+            htmlstr = f"""<p style='background-color: rgb({wch_colour_box[0]}, 
+                                                        {wch_colour_box[1]}, 
+                                                        {wch_colour_box[2]}, 0.75); 
+                                    color: rgb({wch_colour_font[0]}, 
+                                            {wch_colour_font[1]}, 
+                                            {wch_colour_font[2]}, 0.75); 
+                                    font-size: {fontsize}px; 
+                                    border-radius: 7px; 
+                                    padding-left: 12px; 
+                                    padding-top: 18px; 
+                                    padding-bottom: 18px; 
+                                    line-height:25px;'>
+                                    <i class='{iconname} fa-xs'></i> {i}
+                                    </style><BR><span style='font-size: 14px; 
+                                    margin-top: 0;'>{sline}</style></span></p>"""
+            st.markdown(lnk + htmlstr, unsafe_allow_html=True)
+
+        with col3:
+            wch_colour_box = (173, 216, 230)
+            wch_colour_font = (0,0,0)
+            fontsize = 18
+            valign = "left"
+            iconname = "fas fa-asterisk"
+            sline = "DEALS PERDUS"
+            lnk = '<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.1/css/all.css" crossorigin="anonymous">'
+            i = lost_deals
+
+            htmlstr = f"""<p style='background-color: rgb({wch_colour_box[0]}, 
+                                                        {wch_colour_box[1]}, 
+                                                        {wch_colour_box[2]}, 0.75); 
+                                    color: rgb({wch_colour_font[0]}, 
+                                            {wch_colour_font[1]}, 
+                                            {wch_colour_font[2]}, 0.75); 
+                                    font-size: {fontsize}px; 
+                                    border-radius: 7px; 
+                                    padding-left: 12px; 
+                                    padding-top: 18px; 
+                                    padding-bottom: 18px; 
+                                    line-height:25px;'>
+                                    <i class='{iconname} fa-xs'></i> {i}
+                                    </style><BR><span style='font-size: 14px; 
+                                    margin-top: 0;'>{sline}</style></span></p>"""
+            st.markdown(lnk + htmlstr, unsafe_allow_html=True)
+
+        with col4:
+            wch_colour_box = (75, 0, 130)
+            wch_colour_font = (0,0,0)
+            fontsize = 18
+            valign = "left"
+            iconname = "fas fa-asterisk"
+            sline = "DEALS EN COURS"
+            lnk = '<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.1/css/all.css" crossorigin="anonymous">'
+            i = engaging_deals
+
+            htmlstr = f"""<p style='background-color: rgb({wch_colour_box[0]}, 
+                                                        {wch_colour_box[1]}, 
+                                                        {wch_colour_box[2]}, 0.75); 
+                                    color: rgb({wch_colour_font[0]}, 
+                                            {wch_colour_font[1]}, 
+                                            {wch_colour_font[2]}, 0.75); 
+                                    font-size: {fontsize}px; 
+                                    border-radius: 7px; 
+                                    padding-left: 12px; 
+                                    padding-top: 18px; 
+                                    padding-bottom: 18px; 
+                                    line-height:25px;'>
+                                    <i class='{iconname} fa-xs'></i> {i}
+                                    </style><BR><span style='font-size: 14px; 
+                                    margin-top: 0;'>{sline}</style></span></p>"""
+            st.markdown(lnk + htmlstr, unsafe_allow_html=True)
+
+
+        with col5:
+            wch_colour_box = (128, 0, 128)
+            wch_colour_font = (0,0,0)
+            fontsize = 18
+            valign = "left"
+            iconname = "fas fa-asterisk"
+            sline = "PROSPECTIONS"
+            lnk = '<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.12.1/css/all.css" crossorigin="anonymous">'
+            i = prospecting_deals
+
+            htmlstr = f"""<p style='background-color: rgb({wch_colour_box[0]}, 
+                                                        {wch_colour_box[1]}, 
+                                                        {wch_colour_box[2]}, 0.75); 
+                                    color: rgb({wch_colour_font[0]}, 
+                                            {wch_colour_font[1]}, 
+                                            {wch_colour_font[2]}, 0.75); 
+                                    font-size: {fontsize}px; 
+                                    border-radius: 7px; 
+                                    padding-left: 12px; 
+                                    padding-top: 18px; 
+                                    padding-bottom: 18px; 
+                                    line-height:25px;'>
+                                    <i class='{iconname} fa-xs'></i> {i}
+                                    </style><BR><span style='font-size: 14px; 
+                                    margin-top: 0;'>{sline}</style></span></p>"""
+            st.markdown(lnk + htmlstr, unsafe_allow_html=True)
+
+            
+        
     
-    col1,col2=st.columns([1,3])
-    col1.image("img/cycle.png",width=200)
+    col1,col2=st.columns([2,3])
+    col1.subheader("Schéma du cycle de vente")
+    col1.image("img/cycle.png",width=330)
 
     with col2:
+         # with col1:
+        # Conversion des colonnes de dates en datetime
+        sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+        sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
+
+            # Calcul de la durée du deal
+        sales_pipeline_df['deal_duration'] = sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']
+
+            # Conversion de la durée en nombre de jours
+        sales_pipeline_df['deal_duration_days'] = sales_pipeline_df['deal_duration'].dt.days
+
+            # S'assurer que les produits sont des chaînes de caractères
+        sales_pipeline_df['product'] = sales_pipeline_df['product'].astype(str)
+
+            # Filtrer les deals "Won" et calculer la moyenne de la durée du deal par produit
+        sold_faster = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won'].groupby('product')['deal_duration_days'].mean().sort_values(ascending=True).reset_index()
+
+    #         # Création du line chart avec Altair
+    #         chart = alt.Chart(sold_faster).mark_line(point=True).encode(
+    #             x='product',
+    #             y='deal_duration_days'
+    #         ).properties(
+    #             title='Durée moyenne de vente des produits'
+    #         )
+    #         st.altair_chart(chart, use_container_width=True)
+        chart_data = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won'].groupby('product')['deal_duration_days'].mean().sort_values(ascending=True)
+
+    # Convertir la Series en DataFrame
+        chart_data_df = chart_data.reset_index()
+
+        with chart_container(chart_data_df):
+            st.write("Durée moyenne de vente des produits")
+            st.area_chart(chart_data_df.set_index('product'))
+                        
+
+
+
 
     
      # Assurez-vous que les colonnes de dates sont en format datetime
-        sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
-        sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
+    sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
+    sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
 
         # Calculer la durée du cycle de vente pour chaque deal
-        sales_pipeline_df['cycle_duration'] = (sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']).dt.days
+    sales_pipeline_df['cycle_duration'] = (sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']).dt.days
 
         # Calculer la durée moyenne du cycle de vente pour tous les deals
-        average_cycle_duration = sales_pipeline_df['cycle_duration'].mean()
+     
+    average_cycle_duration = sales_pipeline_df['cycle_duration'].mean()
 
         # Calculer la durée moyenne pour les deals gagnés
-        deals_won_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']
-        average_cycle_duration_won = deals_won_df['cycle_duration'].mean()
+    deals_won_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won']
+    average_cycle_duration_won = deals_won_df['cycle_duration'].mean()
 
         # Calculer la durée moyenne pour les deals perdus
-        deals_lost_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Lost']
-        average_cycle_duration_lost = deals_lost_df['cycle_duration'].mean()
+    deals_lost_df = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Lost']
+    average_cycle_duration_lost = deals_lost_df['cycle_duration'].mean()
 
         # Afficher les résultats avec Streamlit
-        col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-        col1.metric(label="Durée moyenne du cycle de vente", value=f"{average_cycle_duration:.1f} jours")
-        col2.metric(label="Durée moyenne des deals gagnés", value=f"{average_cycle_duration_won:.1f} jours")
-        col3.metric(label="Durée moyenne des deals perdus", value=f"{average_cycle_duration_lost:.1f} jours")
+    col1.metric(label="Durée moyenne du cycle de vente", value=f"{average_cycle_duration:.1f} jours")
+    col2.metric(label="Durée moyenne des deals gagnés", value=f"{average_cycle_duration_won:.1f} jours")
+    col3.metric(label="Durée moyenne des deals perdus", value=f"{average_cycle_duration_lost:.1f} jours")
+    style_metric_cards()
 
 
-    col1,col2 = st.columns([3,2])
+        # Filtres
+    selected_product = st.sidebar.multiselect(
+        "Sélectionner les produits",
+        options=sales_pipeline_df['product'].unique(),
+        default=sales_pipeline_df['product'].unique()
+    )
 
+    selected_deal_stage = st.sidebar.multiselect(
+        "Sélectionner les étapes du cycle de vente",
+        options=sales_pipeline_df['deal_stage'].unique(),
+        default=sales_pipeline_df['deal_stage'].unique()
+    )
+
+    filtered_sales_pipeline_df = sales_pipeline_df[
+        (sales_pipeline_df['product'].isin(selected_product)) & 
+        (sales_pipeline_df['deal_stage'].isin(selected_deal_stage))
+    ]
+
+    # Création de deux colonnes pour afficher les graphiques côte à côte
+    
+    
+    
+    filtered_sales_pipeline_df['cycle_duration'] = (filtered_sales_pipeline_df['close_date'] - filtered_sales_pipeline_df['engage_date']).dt.days
+    average_duration_per_product = filtered_sales_pipeline_df.groupby('product')['cycle_duration'].mean().reset_index()
+       
+    #PARTIE POUR  LES PRODUITS
+    col1,col2=st.columns(2)
     with col1:
-        # Conversion des colonnes de dates en datetime
-            sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
-            sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
-
-            # Calcul de la durée du deal
-            sales_pipeline_df['deal_duration'] = sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']
-
-            # Conversion de la durée en nombre de jours
-            sales_pipeline_df['deal_duration_days'] = sales_pipeline_df['deal_duration'].dt.days
-
-            # S'assurer que les produits sont des chaînes de caractères
-            sales_pipeline_df['product'] = sales_pipeline_df['product'].astype(str)
-
-            # Filtrer les deals "Won" et calculer la moyenne de la durée du deal par produit
-            sold_faster = sales_pipeline_df[sales_pipeline_df['deal_stage'] == 'Won'].groupby('product')['deal_duration_days'].mean().sort_values(ascending=True).reset_index()
-
-            # Création du line chart avec Altair
-            chart = alt.Chart(sold_faster).mark_line(point=True).encode(
-                x='product',
-                y='deal_duration_days'
-            ).properties(
-                title='Average Deal Duration by Product'
-            )
-            st.altair_chart(chart, use_container_width=True)
+        # 1.	Les produits les plus chers 
+        st.subheader("Les produits les plus chers ")
+        product_price=products_df.sort_values(by='sales_price', ascending=False)
+        st.dataframe(product_price)
 
     with col2:
+    # # 2.	Les produits en fonction des séries 
+        st.subheader("Les produits en fonction des séries ")
+        data=products_df['product'].groupby(products_df['series']).count().reset_index()
+        fig = px.pie(data, values='product', names='series', hole=0.5)
+        st.plotly_chart(fig, use_container_width=True)
 
-            # Assurez-vous que les colonnes de dates sont en format datetime
-            sales_pipeline_df['engage_date'] = pd.to_datetime(sales_pipeline_df['engage_date'])
-            sales_pipeline_df['close_date'] = pd.to_datetime(sales_pipeline_df['close_date'])
 
-            # Calculer la durée de vente pour chaque produit
-            sales_pipeline_df['cycle_duration'] = (sales_pipeline_df['close_date'] - sales_pipeline_df['engage_date']).dt.days
-            # Calculer la durée moyenne de vente pour chaque produit
-            average_duration_per_product = sales_pipeline_df.groupby('product')['cycle_duration'].mean().reset_index()
 
-            # Renommer les colonnes pour plus de clarté
-            average_duration_per_product.columns = ['Product', 'Average_Duration']
-            # Classer les produits par durée moyenne de vente en ordre croissant
-            sorted_products = average_duration_per_product.sort_values(by='Average_Duration')
 
-            # Afficher les résultats avec Streamlit
-            st.subheader("Durée moyenne de vente des produits")
-            st.dataframe(sorted_products)
+    st.subheader("Durée moyenne de vente des produits")
+    fig = alt.Chart(average_duration_per_product).mark_line(point=True).encode(
+            x='product',
+            y='cycle_duration'
+    ).properties(
+            title='Average Deal Duration by Product',
+            width=600,  # Ajuster la largeur du graphique
+            height=400  # Ajuster la hauteur du graphique
+    )
+    st.altair_chart(fig, use_container_width=True)
