@@ -755,15 +755,15 @@ elif st.session_state.page==pages[2]:
     #     fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
     #     st.plotly_chart(fig, use_container_width=True)
  
-    with col2:
-        st.subheader("Les agents selon leur durées de deals")
-        sp_time_clean = sp_time_clean[sp_time_clean['sales_agent'].isin(selected_agent)]
-        top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration_days'].mean().sort_values(ascending=False).head(20)
+    # with col2:
+    #     st.subheader("Les agents selon leur durées de deals")
+    #     sp_time_clean = sp_time_clean[sp_time_clean['sales_agent'].isin(selected_agent)]
+    #     top5_slower = sp_time_clean[sp_time_clean['deal_stage'] == 'Won'].groupby('sales_agent')['deal_duration_days'].mean().sort_values(ascending=False).head(20)
        
-        chart_data = top5_slower.reset_index()
+    #     chart_data = top5_slower.reset_index()
  
-        with chart_container(chart_data):
-            st.area_chart(chart_data.set_index('sales_agent'))
+    #     with chart_container(chart_data):
+    #         st.area_chart(chart_data.set_index('sales_agent'))
  
  
 elif st.session_state.page==pages[3]:
