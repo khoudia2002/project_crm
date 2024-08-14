@@ -228,7 +228,7 @@ if st.session_state.page == pages[0] :
     #3. Le produit le plus rentable
     col1,col2=st.columns(2)
     col1.subheader("Rentabilité des produits ")
-    col1.bar_chart(sales_pipeline_df[sales_pipeline_df['deal_stage']=='Won'].groupby('product')['close_value'].sum().sort_values(ascending=False),x_label="produit",y_label="Valeur du deal",color='#77B5FE')
+    col1.bar_chart(sales_pipeline_df[sales_pipeline_df['deal_stage']=='Won'].groupby('product')['close_value'].sum().sort_values(ascending=False),x_label="produit",y_label="Revenue",color='#77B5FE')
    
    
     #   Le produit le plus vendus
@@ -339,9 +339,11 @@ elif st.session_state.page == pages[1] :
         # Afficher le graphique avec Streamlit
        
         st.plotly_chart(fig)
+   
+    
  
  
- 
+
  
     # # Filtres
     # selected_sector = st.sidebar.multiselect(
@@ -559,6 +561,41 @@ elif st.session_state.page == pages[1] :
     # Convertir la carte Folium en HTML
     map_html = m._repr_html_()
     st.components.v1.html(map_html, height=500)
+
+
+      # Ajouter les filtres de sélection dans la barre latérale
+    selected_clients = st.sidebar.multiselect(
+        "Sélectionner les clients",
+        options=acc_df_clean['account'].unique(),
+        default=acc_df_clean['account'].unique()
+    )
+
+    selected_products = st.sidebar.multiselect(
+        "Sélectionner les produits",
+        options=products_df['product'].unique(),
+        default=products_df['product'].unique()
+    )
+
+    # Filtrer les données selon les clients et les produits sélectionnés
+    filtered_sales_df = sales_pipeline_df[
+        (sales_pipeline_df['account'].isin(selected_clients)) &
+        (sales_pipeline_df['product'].isin(selected_products))
+    ]
+
+   
+    
+    
+   
+  
+        # Afficher un graphique montrant les produits achetés par chaque client
+    fig = px.bar(filtered_sales_df, x='account', y='close_value', color='product',
+                    labels={'close_value': 'Valeur de l\'achat', 'account': 'Clients'},
+                    title='Produits achetés par les clients sélectionnés')
+    st.plotly_chart(fig)
+    
+    
+ 
+ 
  
  
  
@@ -622,7 +659,7 @@ elif st.session_state.page==pages[2]:
     col1,col2=st.columns(2)
    
     with col1:
-        st.subheader("Classement des agents par region")
+        st.subheader("Repartition des agents par region")
         data=sales_teams_df['sales_agent'].groupby(sales_teams_df['regional_office']).count().reset_index()
        
         fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
@@ -1017,10 +1054,8 @@ elif st.session_state.page==pages[3]:
         data=products_df['product'].groupby(products_df['series']).count().reset_index()
         fig = px.pie(data, values='product', names='series', hole=0.5)
         st.plotly_chart(fig, use_container_width=True)
- 
- 
- 
- 
+
+  
    
     fig = alt.Chart(average_duration_per_product).mark_line(point=True).encode(
             x='product',
