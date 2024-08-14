@@ -500,7 +500,7 @@ elif st.session_state.page == pages[1] :
     # Affichage des graphiques
     col1, col2 = st.columns(2)
     with col1:
-        col1.subheader("Les clients selon leur chiffre d'affaires")
+        col1.subheader("Clients basés dans les pays et leurs chiffres d'affaires")
         col1.bar_chart(filtered_acc_df[['account', 'revenue']].sort_values(by="revenue", ascending=False).head(10).set_index('account'), color="#6621db")
  
     with col2:
@@ -590,7 +590,7 @@ elif st.session_state.page == pages[1] :
         # Afficher un graphique montrant les produits achetés par chaque client
     fig = px.bar(filtered_sales_df, x='account', y='close_value', color='product',
                     labels={'close_value': 'Valeur de l\'achat', 'account': 'Clients'},
-                    title='Produits achetés par les clients sélectionnés')
+                    title='Produits achetés par les clients')
     st.plotly_chart(fig)
     
     
@@ -730,30 +730,30 @@ elif st.session_state.page==pages[2]:
  
         st.dataframe(data,width=400)
  
-    # Filtres
-    selected_agent = st.sidebar.multiselect(
-        "Sélectionner les agents",
-        options=sales_teams_df['sales_agent'].unique(),
-        default=sales_teams_df['sales_agent'].unique()
-    )
+    # # Filtres
+    # selected_agent = st.sidebar.multiselect(
+    #     "Sélectionner les agents",
+    #     options=sales_teams_df['sales_agent'].unique(),
+    #     default=sales_teams_df['sales_agent'].unique()
+    # )
    
-    selected_region = st.sidebar.multiselect(
-        "Sélectionner les régions",
-        options=sales_teams_df['regional_office'].unique(),
-        default=sales_teams_df['regional_office'].unique()
-    )
+    # selected_region = st.sidebar.multiselect(
+    #     "Sélectionner les régions",
+    #     options=sales_teams_df['regional_office'].unique(),
+    #     default=sales_teams_df['regional_office'].unique()
+    # )
    
-    filtered_sales_df = sales_pipeline_df[
-        (sales_pipeline_df['sales_agent'].isin(selected_agent)) &
-        (sales_teams_df['regional_office'].isin(selected_region))
-    ]
+    # filtered_sales_df = sales_pipeline_df[
+    #     (sales_pipeline_df['sales_agent'].isin(selected_agent)) &
+    #     (sales_teams_df['regional_office'].isin(selected_region))
+    # ]
    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader(" les agents selon les régions")
-        data = sales_teams_df[sales_teams_df['sales_agent'].isin(selected_agent)].groupby('regional_office')['sales_agent'].count().reset_index()
-        fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
-        st.plotly_chart(fig, use_container_width=True)
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     st.subheader(" les agents selon les régions")
+    #     data = sales_teams_df[sales_teams_df['sales_agent'].isin(selected_agent)].groupby('regional_office')['sales_agent'].count().reset_index()
+    #     fig = px.pie(data, values='sales_agent', names='regional_office', hole=0.5)
+    #     st.plotly_chart(fig, use_container_width=True)
  
     with col2:
         st.subheader("Les agents selon leur durées de deals")
